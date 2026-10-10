@@ -1,0 +1,26 @@
+# Bancos de dados locais
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Arquivos temporários do Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Ambientes virtuais
+.venv/
+venv/
+
+# Variáveis de ambiente e credenciais
+.env
+.env.*
+!.env.example
+
+# Arquivos do editor
+.vscode/
+
+# Relatórios temporários
+.coverage
+htmlcov/
