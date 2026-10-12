@@ -9,7 +9,8 @@ from database.tabelas import (
     criar_tabela_usuarios,
     criar_tabela_cardapio,
     criar_tabela_fidelidade,
-    criar_tabela_promocoes
+    criar_tabela_promocoes,
+    criar_tabela_itens_pedido,
 )
 
 from routes.produtos import router as produtos_router
@@ -43,6 +44,8 @@ criar_tabela_estoque()
 criar_tabela_cardapio()
 criar_tabela_fidelidade()
 criar_tabela_promocoes()
+criar_tabela_pedidos()
+criar_tabela_itens_pedido()
 
 
 app.include_router(produtos_router)

@@ -1,0 +1,120 @@
+@startuml
+title DER - Rede Raízes do Nordeste
+
+hide circle
+skinparam linetype ortho
+
+entity "produtos" as produtos {
+  * id : INTEGER <<PK>>
+  --
+  nome : TEXT
+  preco : REAL
+}
+
+entity "unidades" as unidades {
+  * id : INTEGER <<PK>>
+  --
+  nome : TEXT
+}
+
+entity "usuarios" as usuarios {
+  * id : INTEGER <<PK>>
+  --
+  nome : TEXT
+  email : TEXT
+  senha_hash : TEXT
+  perfil : TEXT
+  unidade_id : INTEGER <<FK>>
+  ativo : INTEGER
+}
+
+entity "pedidos" as pedidos {
+  * id : INTEGER <<PK>>
+  --
+  produto_id : INTEGER <<FK>>
+  usuario_id : INTEGER <<FK>>
+}
+
+entity "itens_pedido" as itens {
+  * id : INTEGER <<PK>>
+  --
+  pedido_id : INTEGER <<FK>>
+  produto_id : INTEGER <<FK>>
+  quantidade : INTEGER
+  preco_unitario : REAL
+  subtotal : REAL
+}
+
+entity "pagamentos" as pagamentos {
+  * id : INTEGER <<PK>>
+  --
+  pedido_id : INTEGER <<FK>>
+}
+
+entity "estoque" as estoque {
+  * id : INTEGER <<PK>>
+  --
+  produto_id : INTEGER <<FK>>
+}
+
+entity "cardapio_unidade" as cardapio {
+  * id : INTEGER <<PK>>
+  --
+  unidade_id : INTEGER <<FK>>
+  produto_id : INTEGER <<FK>>
+  preco : REAL
+  disponivel : INTEGER
+}
+
+entity "fidelidade" as fidelidade {
+  * id : INTEGER <<PK>>
+  --
+  usuario_id : INTEGER <<FK>>
+  pontos : INTEGER
+}
+
+entity "movimentos_fidelidade" as movimentos {
+  * id : INTEGER <<PK>>
+  --
+  usuario_id : INTEGER <<FK>>
+  pedido_id : INTEGER <<FK>>
+  tipo : TEXT
+  pontos : INTEGER
+  data_movimento : TEXT
+}
+
+entity "promocoes" as promocoes {
+  * id : INTEGER <<PK>>
+  --
+  nome : TEXT
+  unidade_id : INTEGER <<FK>>
+  produto_id : INTEGER <<FK>>
+  percentual_desconto : REAL
+  data_inicio : TEXT
+  data_fim : TEXT
+  ativa : INTEGER
+}
+
+produtos ||--o{ pedidos
+usuarios ||--o{ pedidos
+
+pedidos ||--o{ itens
+produtos ||--o{ itens
+
+pedidos ||--o{ pagamentos
+produtos ||--o{ estoque
+
+unidades ||--o{ usuarios
+
+unidades ||--o{ cardapio
+produtos ||--o{ cardapio
+
+usuarios ||--o{ fidelidade
+
+usuarios ||--o{ movimentos
+pedidos ||--o{ movimentos
+
+unidades ||--o{ promocoes
+produtos ||--o{ promocoes
+
+@enduml

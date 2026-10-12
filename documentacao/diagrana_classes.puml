@@ -1,0 +1,109 @@
+@startuml
+title Diagrama de Classes - Rede Raízes do Nordeste
+
+skinparam classAttributeIconSize 0
+hide empty methods
+
+class Usuario {
+  +id: int
+  +nome: str
+  +email: str
+  +senha_hash: str
+  +perfil: str
+  +unidade_id: int
+  +ativo: bool
+}
+
+class Unidade {
+  +id: int
+  +nome: str
+}
+
+class Produto {
+  +id: int
+  +nome: str
+  +preco: float
+}
+
+class CardapioUnidade {
+  +id: int
+  +unidade_id: int
+  +produto_id: int
+  +preco: float
+  +disponivel: bool
+}
+
+class Pedido {
+  +id: int
+  +usuario_id: int
+  +unidade_id: int
+  +canal_pedido: str
+  +status: str
+  +valor_total: float
+}
+
+class ItemPedido {
+  +id: int
+  +pedido_id: int
+  +produto_id: int
+  +quantidade: int
+  +preco_unitario: float
+  +subtotal: float
+}
+
+class Pagamento {
+  +id: int
+  +pedido_id: int
+}
+
+class Estoque {
+  +id: int
+  +produto_id: int
+  +quantidade: int
+}
+
+class Promocao {
+  +id: int
+  +nome: str
+  +unidade_id: int
+  +produto_id: int
+  +percentual_desconto: float
+  +data_inicio: str
+  +data_fim: str
+  +ativa: bool
+}
+
+class Fidelidade {
+  +id: int
+  +usuario_id: int
+  +pontos: int
+}
+
+class MovimentoFidelidade {
+  +id: int
+  +usuario_id: int
+  +pedido_id: int
+  +tipo: str
+  +pontos: int
+  +data_movimento: str
+}
+
+Unidade "1" -- "0..*" Usuario
+Unidade "1" -- "0..*" Pedido
+Unidade "1" -- "0..*" CardapioUnidade
+Unidade "1" -- "0..*" Promocao
+
+Usuario "1" -- "0..*" Pedido
+Usuario "1" -- "0..1" Fidelidade
+Usuario "1" -- "0..*" MovimentoFidelidade
+
+Pedido "1" -- "1..*" ItemPedido
+Pedido "1" -- "0..*" Pagamento
+Pedido "1" -- "0..*" MovimentoFidelidade
+
+Produto "1" -- "0..*" ItemPedido
+Produto "1" -- "0..*" Estoque
+Produto "1" -- "0..*" CardapioUnidade
+Produto "1" -- "0..*" Promocao
+
+@enduml

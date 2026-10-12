@@ -11,12 +11,17 @@ class ProdutoNovo(BaseModel):
     preco: float
 
 
-class PedidoNovo(BaseModel):
+class ItemPedidoNovo(BaseModel):
     produto_id: int
-    unidade_id: int
     quantidade: int
+
+class PedidoNovo(BaseModel):
+    produto_id: int | None = None
+    unidade_id: int
+    quantidade: int | None = None
     canal_pedido: str
     usuario_id: int | None = None
+    itens: list[ItemPedidoNovo] | None = None
 
 class PagamentoNovo(BaseModel):
     pedido_id: int

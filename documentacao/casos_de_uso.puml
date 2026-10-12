@@ -1,0 +1,60 @@
+@startuml
+left to right direction
+
+actor Cliente
+actor Atendente
+actor Cozinha
+actor Gerente
+actor Administrador
+actor "Gateway de Pagamento" as Gateway
+
+rectangle "Sistema Raízes do Nordeste" {
+
+  usecase "Consultar cardápio" as UC1
+  usecase "Realizar pedido" as UC2
+  usecase "Acompanhar pedido" as UC3
+  usecase "Consultar fidelidade" as UC4
+
+  usecase "Registrar pedido no balcão" as UC5
+  usecase "Consultar pedidos" as UC6
+
+  usecase "Atualizar status do pedido" as UC7
+
+  usecase "Gerenciar operações da unidade" as UC8
+  usecase "Gerenciar estoque" as UC9
+
+  usecase "Cadastrar produtos" as UC10
+  usecase "Administrar unidades" as UC11
+  usecase "Gerenciar cardápios" as UC12
+  usecase "Gerenciar promoções" as UC13
+
+  usecase "Processar pagamento simulado" as UC14
+  usecase "Verificar estoque" as UC15
+}
+
+Cliente --> UC1
+Cliente --> UC2
+Cliente --> UC3
+Cliente --> UC4
+
+Atendente --> UC5
+Atendente --> UC6
+
+Cozinha --> UC6
+Cozinha --> UC7
+
+Gerente --> UC8
+Gerente --> UC9
+
+Administrador --> UC10
+Administrador --> UC11
+Administrador --> UC12
+Administrador --> UC13
+
+Gateway --> UC14
+
+UC5 ..> UC2 : <<include>>
+UC2 ..> UC15 : <<include>>
+
+
+@enduml

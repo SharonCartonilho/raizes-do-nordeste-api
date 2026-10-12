@@ -229,4 +229,23 @@ def criar_tabela_promocoes():
 
     conexao.commit()
     conexao.close()
+def criar_tabela_itens_pedido():
+    conexao = conectar_banco()
+
+    conexao.execute("""
+        CREATE TABLE IF NOT EXISTS itens_pedido (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            pedido_id INTEGER NOT NULL,
+            produto_id INTEGER NOT NULL,
+            quantidade INTEGER NOT NULL CHECK (quantidade > 0),
+            preco_unitario REAL NOT NULL CHECK (preco_unitario >= 0),
+            subtotal REAL NOT NULL CHECK (subtotal >= 0),
+
+            FOREIGN KEY (pedido_id) REFERENCES pedidos(id),
+            FOREIGN KEY (produto_id) REFERENCES produtos(id)
+        )
+    """)
+
+    conexao.commit()
+    conexao.close()
    

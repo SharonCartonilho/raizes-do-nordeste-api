@@ -1,0 +1,61 @@
+@startuml
+title Arquitetura do Sistema - Rede Raízes do Nordeste
+
+top to bottom direction
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+actor "Usuário" as Usuario
+
+rectangle "Clientes da API" {
+  component "Aplicativo / Web" as App
+  component "Totem" as Totem
+  component "Balcão" as Balcao
+  component "Swagger / Postman" as Swagger
+}
+
+rectangle "API - FastAPI" {
+  component "main.py\nInicialização da API" as Main
+
+  package "Camada de Apresentação" {
+    component "routes/\nEndpoints HTTP" as Routes
+  }
+
+  package "Camada de Aplicação" {
+    component "services/\nRegras de negócio" as Services
+  }
+
+  package "Modelos e Validação" {
+    component "models/schemas.py\nPydantic" as Models
+  }
+
+  package "Persistência" {
+    component "database/conexao.py" as Conexao
+    component "database/tabelas.py" as Tabelas
+  }
+}
+
+database "SQLite\nraizes.db" as DB
+
+component "Autenticação JWT\nControle de perfis" as Auth
+
+Usuario --> App
+Usuario --> Totem
+Usuario --> Balcao
+
+App --> Routes : HTTP / JSON
+Totem --> Routes : HTTP / JSON
+Balcao --> Routes : HTTP / JSON
+Swagger --> Routes : Testes da API
+
+Main --> Routes : Registra rotas
+Main --> Tabelas : Inicializa tabelas
+
+Routes --> Models : Valida dados
+Routes --> Services : Executa operações
+Routes --> Auth : Verifica acesso
+
+Services --> Conexao : Consulta e grava dados
+Conexao --> DB : SQL
+
+@enduml

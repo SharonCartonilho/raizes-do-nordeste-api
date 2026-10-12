@@ -3,7 +3,6 @@ from datetime import date
 from database.conexao import conectar_banco
 from services.fidelidade_service import conceder_pontos_pedido
 
-
 def criar_novo_pedido(pedido):
     canais_validos = ["APP", "TOTEM", "BALCAO", "PICKUP", "WEB"]
 
@@ -13,29 +12,63 @@ def criar_novo_pedido(pedido):
             detail="Canal de pedido inválido"
         )
 
-    if pedido.quantidade <= 0:
-        raise HTTPException(
-            status_code=400,
-            detail="A quantidade deve ser maior que zero"
+    # Aceitar o formato novo ou o antigo
+    if pedido.itens is not None:
+        itens_recebidos = pedido.itens
+
+        if not itens_recebidos:
+            raise HTTPException(
+                status_code=400,
+                detail="O pedido deve conter pelo menos um item"
+            )
+
+        if pedido.produto_id is not None or pedido.quantidade is not None:
+            raise HTTPException(
+                status_code=400,
+                detail="Informe itens ou produto_id/quantidade, não ambos"
+            )
+
+    else:
+        if pedido.produto_id is None or pedido.quantidade is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Informe os produtos do pedido"
+            )
+
+        itens_recebidos = [
+            {
+                "produto_id": pedido.produto_id,
+                "quantidade": pedido.quantidade
+            }
+        ]
+
+    # Organizar os itens e somar produtos repetidos
+    quantidades = {}
+
+    for item in itens_recebidos:
+        if isinstance(item, dict):
+            produto_id = item["produto_id"]
+            quantidade = item["quantidade"]
+        else:
+            produto_id = item.produto_id
+            quantidade = item.quantidade
+
+        if quantidade <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail="A quantidade deve ser maior que zero"
+            )
+
+        quantidades[produto_id] = (
+            quantidades.get(produto_id, 0) + quantidade
         )
 
     conexao = conectar_banco()
 
     try:
-        # Verificar se o produto existe
-        produto = conexao.execute("""
-            SELECT id, nome, preco
-            FROM produtos
-            WHERE id = ?
-        """, (pedido.produto_id,)).fetchone()
+        # Iniciar transação para proteger o estoque
+        conexao.execute("BEGIN IMMEDIATE")
 
-        if produto is None:
-            raise HTTPException(
-                status_code=404,
-                detail="Produto não encontrado"
-            )
-
-        # Verificar se a unidade existe e está ativa
         unidade = conexao.execute("""
             SELECT id
             FROM unidades
@@ -48,7 +81,6 @@ def criar_novo_pedido(pedido):
                 detail="Unidade não encontrada ou inativa"
             )
 
-        # Verificar o cliente, quando informado
         if pedido.usuario_id is not None:
             cliente = conexao.execute("""
                 SELECT id
@@ -64,90 +96,125 @@ def criar_novo_pedido(pedido):
                     detail="Cliente não encontrado ou inativo"
                 )
 
-        # Consultar o cardápio da unidade
-        item_cardapio = conexao.execute("""
-            SELECT preco, disponivel
-            FROM cardapio_unidade
-            WHERE produto_id = ?
-              AND unidade_id = ?
-        """, (
-            pedido.produto_id,
-            pedido.unidade_id
-        )).fetchone()
-
-        if item_cardapio is None:
-            raise HTTPException(
-                status_code=404,
-                detail="Produto não encontrado no cardápio desta unidade"
-            )
-
-        if not item_cardapio["disponivel"]:
-            raise HTTPException(
-                status_code=409,
-                detail="Produto indisponível nesta unidade"
-            )
-
-        # Consultar estoque
-        estoque = conexao.execute("""
-            SELECT quantidade
-            FROM estoque
-            WHERE produto_id = ?
-              AND unidade_id = ?
-        """, (
-            pedido.produto_id,
-            pedido.unidade_id
-        )).fetchone()
-
-        if estoque is None:
-            raise HTTPException(
-                status_code=409,
-                detail="Produto sem estoque cadastrado"
-            )
-
-        if pedido.quantidade > estoque["quantidade"]:
-            raise HTTPException(
-                status_code=409,
-                detail="Estoque insuficiente"
-            )
-
-        # Calcular o valor original
-        valor_original = round(
-            item_cardapio["preco"] * pedido.quantidade,
-            2
-        )
-
-        # Procurar promoção válida
+        itens_calculados = []
+        valor_original = 0
+        desconto_total = 0
         hoje = date.today().isoformat()
 
-        promocao = conexao.execute("""
-            SELECT id, nome, percentual_desconto
-            FROM promocoes
-            WHERE unidade_id = ?
-              AND produto_id = ?
-              AND ativa = 1
-              AND data_inicio <= ?
-              AND data_fim >= ?
-            ORDER BY percentual_desconto DESC, id ASC
-            LIMIT 1
-        """, (
-            pedido.unidade_id,
-            pedido.produto_id,
-            hoje,
-            hoje
-        )).fetchone()
+        # Verificar todos os produtos antes de registrar o pedido
+        for produto_id, quantidade in quantidades.items():
 
-        desconto = 0
+            produto = conexao.execute("""
+                SELECT id, nome
+                FROM produtos
+                WHERE id = ?
+            """, (produto_id,)).fetchone()
 
-        if promocao is not None:
-            desconto = round(
-                valor_original *
-                promocao["percentual_desconto"] / 100,
-                2
+            if produto is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Produto {produto_id} não encontrado"
+                )
+
+            cardapio = conexao.execute("""
+                SELECT preco, disponivel
+                FROM cardapio_unidade
+                WHERE produto_id = ?
+                  AND unidade_id = ?
+            """, (
+                produto_id,
+                pedido.unidade_id
+            )).fetchone()
+
+            if cardapio is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Produto {produto_id} não está no cardápio da unidade"
+                )
+
+            if not cardapio["disponivel"]:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Produto {produto_id} indisponível"
+                )
+
+            estoque = conexao.execute("""
+                SELECT quantidade
+                FROM estoque
+                WHERE produto_id = ?
+                  AND unidade_id = ?
+            """, (
+                produto_id,
+                pedido.unidade_id
+            )).fetchone()
+
+            if estoque is None or quantidade > estoque["quantidade"]:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Estoque insuficiente para o produto {produto_id}"
+                )
+
+            promocao = conexao.execute("""
+                SELECT id, nome, percentual_desconto
+                FROM promocoes
+                WHERE unidade_id = ?
+                  AND produto_id = ?
+                  AND ativa = 1
+                  AND data_inicio <= ?
+                  AND data_fim >= ?
+                ORDER BY percentual_desconto DESC, id ASC
+                LIMIT 1
+            """, (
+                pedido.unidade_id,
+                produto_id,
+                hoje,
+                hoje
+            )).fetchone()
+
+            preco = round(cardapio["preco"], 2)
+            subtotal_original = round(preco * quantidade, 2)
+
+            desconto = 0
+            nome_promocao = None
+
+            if promocao is not None:
+                desconto = round(
+                    subtotal_original *
+                    promocao["percentual_desconto"] / 100,
+                    2
+                )
+                nome_promocao = promocao["nome"]
+
+            subtotal_final = round(
+                subtotal_original - desconto, 2
             )
 
-        valor_total = round(valor_original - desconto, 2)
+            valor_original = round(
+                valor_original + subtotal_original, 2
+            )
 
-        # Registrar pedido
+            desconto_total = round(
+                desconto_total + desconto, 2
+            )
+
+            itens_calculados.append({
+                "produto_id": produto_id,
+                "produto": produto["nome"],
+                "quantidade": quantidade,
+                "preco_unitario": preco,
+                "subtotal_original": subtotal_original,
+                "desconto": desconto,
+                "promocao": nome_promocao,
+                "subtotal": subtotal_final
+            })
+
+        valor_total = round(
+            valor_original - desconto_total, 2
+        )
+
+        # Compatibilidade com a estrutura antiga de pedidos
+        primeiro_item = itens_calculados[0]
+
         cursor = conexao.execute("""
             INSERT INTO pedidos (
                 produto_id,
@@ -160,45 +227,61 @@ def criar_novo_pedido(pedido):
             )
             VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (
-            pedido.produto_id,
+            primeiro_item["produto_id"],
             pedido.unidade_id,
             pedido.usuario_id,
-            pedido.quantidade,
+            sum(quantidades.values()),
             pedido.canal_pedido,
             "AGUARDANDO_PAGAMENTO",
             valor_total
         ))
 
-        # Atualizar estoque
-        conexao.execute("""
-            UPDATE estoque
-            SET quantidade = quantidade - ?
-            WHERE produto_id = ?
-              AND unidade_id = ?
-        """, (
-            pedido.quantidade,
-            pedido.produto_id,
-            pedido.unidade_id
-        ))
+        pedido_id = cursor.lastrowid
+
+        # Registrar cada item e atualizar seu estoque
+        for item in itens_calculados:
+
+            conexao.execute("""
+                INSERT INTO itens_pedido (
+                    pedido_id,
+                    produto_id,
+                    quantidade,
+                    preco_unitario,
+                    subtotal
+                )
+                VALUES (?, ?, ?, ?, ?)
+            """, (
+                pedido_id,
+                item["produto_id"],
+                item["quantidade"],
+                item["preco_unitario"],
+                item["subtotal"]
+            ))
+
+            conexao.execute("""
+                UPDATE estoque
+                SET quantidade = quantidade - ?
+                WHERE produto_id = ?
+                  AND unidade_id = ?
+            """, (
+                item["quantidade"],
+                item["produto_id"],
+                pedido.unidade_id
+            ))
 
         conexao.commit()
 
-        novo_pedido = {
-            "id": cursor.lastrowid,
-            "produto_id": pedido.produto_id,
+        return {
+            "id": pedido_id,
             "unidade_id": pedido.unidade_id,
             "usuario_id": pedido.usuario_id,
-            "produto": produto["nome"],
-            "quantidade": pedido.quantidade,
             "canal_pedido": pedido.canal_pedido,
             "status": "AGUARDANDO_PAGAMENTO",
+            "itens": itens_calculados,
             "valor_original": valor_original,
-            "desconto": desconto,
-            "promocao": promocao["nome"] if promocao else None,
+            "desconto": desconto_total,
             "valor_total": valor_total
         }
-
-        return novo_pedido
 
     except Exception:
         conexao.rollback()
@@ -207,6 +290,7 @@ def criar_novo_pedido(pedido):
     finally:
         conexao.close()
 
+        
 def alterar_status_pedido(pedido_id, dados):
     status_validos = ["EM_PREPARACAO", "PRONTO", "ENTREGUE"]
 
