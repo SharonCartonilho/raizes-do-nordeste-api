@@ -86,41 +86,23 @@ def criar_tabela_pagamentos():
 
 def criar_tabela_estoque():
     conexao = conectar_banco()
-
+    # A tabela correta contém apenas os dados de estoque por unidade.
     conexao.execute("""
         CREATE TABLE IF NOT EXISTS estoque (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             produto_id INTEGER NOT NULL,
             unidade_id INTEGER NOT NULL,
-            quantidade INTEGER NOT NULL,
-            canal_pedido TEXT NOT NULL,
-            status TEXT NOT NULL,
-            valor_total REAL NOT NULL,
+            quantidade INTEGER NOT NULL DEFAULT 0 CHECK (quantidade >= 0),
             FOREIGN KEY (produto_id) REFERENCES produtos(id),
-            FOREIGN KEY (unidade_id) REFERENCES unidades(id)
+            FOREIGN KEY (unidade_id) REFERENCES unidades(id),
+            UNIQUE (produto_id, unidade_id)
         )
     """)
-
-    colunas = conexao.execute(
-        "PRAGMA table_info(estoque)"
-    ).fetchall()
-
-    nomes_colunas = [coluna["name"] for coluna in colunas]
-
-    if "unidade_id" not in nomes_colunas:
-        conexao.execute(
-            "ALTER TABLE estoque ADD COLUMN unidade_id INTEGER"
-        )
-
-        conexao.execute(
-            """
-            UPDATE estoque
-            SET unidade_id = 1
-            WHERE unidade_id IS NULL
-            """
-        )
-
-    
+    # Compatibilidade com bases antigas, sem apagar registros.
+    colunas = [coluna["name"] for coluna in conexao.execute("PRAGMA table_info(estoque)")]
+    if "unidade_id" not in colunas:
+        conexao.execute("ALTER TABLE estoque ADD COLUMN unidade_id INTEGER")
+        conexao.execute("UPDATE estoque SET unidade_id = 1 WHERE unidade_id IS NULL")
     conexao.commit()
     conexao.close()
 
