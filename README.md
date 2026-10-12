@@ -86,7 +86,7 @@ Para executar os testes:
 py -m pytest -v
 ```
 
-Até o momento, foram implementados 10 testes automatizados envolvendo consultas, validações e autenticação.
+Foram implementados 12 testes automatizados, contemplando 6 cenários positivos e 6 negativos, com execução bem-sucedida utilizando Pytest
 
 ## 9. Segurança
 

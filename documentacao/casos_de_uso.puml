@@ -51,7 +51,8 @@ Administrador --> UC11
 Administrador --> UC12
 Administrador --> UC13
 
-Gateway --> UC14
+Atendente --> UC14
+Administrador --> UC14
 
 UC5 ..> UC2 : <<include>>
 UC2 ..> UC15 : <<include>>
