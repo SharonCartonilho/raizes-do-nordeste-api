@@ -111,3 +111,20 @@ def test_consultar_fidelidade_sem_login():
     resposta = client.get("/fidelidade/3")
 
     assert resposta.status_code == 401
+
+def test_listar_promocoes():
+    resposta = client.get("/promocoes")
+
+    assert resposta.status_code == 200
+    assert isinstance(resposta.json(), list)
+
+
+def test_filtrar_pedidos_por_canal():
+    resposta = client.get("/pedidos?canalPedido=TOTEM")
+
+    assert resposta.status_code == 200
+    assert isinstance(resposta.json(), list)
+    assert all(
+        pedido["canal_pedido"] == "TOTEM"
+        for pedido in resposta.json()
+    )
